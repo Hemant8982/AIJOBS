@@ -66,3 +66,4 @@
   - Inputs at 13px cause automatic zooming on iOS Safari touch devices.
 - **Issues Fixed**: None (Phase 1 was discovery and inventory only; no code changes made).
 - **Exact Next Step**: Wait for user to review Phase 1 inventory and paste `02_PHASE2_labels_and_steps.md`.
+

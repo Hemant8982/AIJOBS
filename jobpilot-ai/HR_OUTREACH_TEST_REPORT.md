@@ -27,3 +27,4 @@
 - Implement Phase 3: Desktop layout refinement and dedicated CSS.
 - Implement Phase 4: Mobile drawer in `layout.tsx` and responsive CSS.
 - Implement Phase 5 & 6: Full functional testing and build verification.
+

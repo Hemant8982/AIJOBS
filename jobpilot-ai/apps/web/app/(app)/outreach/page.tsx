@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon, Pill } from '@/components/ui';
 import { api, errText } from '@/lib/api';
 import { BrandMark } from '@/components/brand';
+import './outreach.css';
 
 type Rec = { email: string; name?: string; company?: string };
 type Parsed = { valid: Rec[]; invalid: { line: string; reason: string }[]; duplicates: number; truncated: number; alreadyContacted: string[] };
@@ -11,6 +12,29 @@ type Camp = { id: string; name: string; subject: string; status: string; gapSec:
 const TONES: Record<string, 'ok' | 'warn' | 'bad' | 'gray' | ''> = { running: 'ok', done: 'ok', paused: 'warn', draft: 'gray', cancelled: 'gray', sent: 'ok', failed: 'bad', queued: 'gray', sending: 'warn', skipped: 'gray' };
 const SAMPLE = 'hr@acme.com\nPriya Shah <priya@zetacloud.io>\ntalent@brightpay.in, Ravi Kumar, Brightpay';
 const MAX_IMG = 8 * 1024 * 1024;
+
+const AI_TOOLTIPS: Record<string, string> = {
+  improve: 'Polish vocabulary and improve sentence flow',
+  shorter: 'Make the email punchy, brief, and concise',
+  friendlier: 'Add a warm, polite, and personable tone',
+  formal: 'Adopt professional and respectful business phrasing',
+  confident: 'Emphasize achievements, value, and confidence',
+  grammar: 'Correct all spelling, punctuation, and syntax errors',
+};
+
+const VAR_TOOLTIPS: Record<string, string> = {
+  '{{name}}': 'Inserts the contact’s full name',
+  '{{first_name}}': 'Inserts the contact’s first name (falls back to “there”)',
+  '{{company}}': 'Inserts the company name (falls back to “your company”)',
+};
+
+function humanReason(reason: string) {
+  if (/no email/i.test(reason)) return 'Missing @ or invalid format';
+  if (/not a valid/i.test(reason)) return 'Domain or format looks incomplete';
+  if (/no-reply/i.test(reason)) return 'Automated no-reply address (cannot receive replies)';
+  if (/own address/i.test(reason)) return 'Matches your own sender address';
+  return reason;
+}
 
 /** Shrinks big screenshots so the upload stays small and quick to read. */
 async function prepImage(file: Blob): Promise<string> {
@@ -35,7 +59,16 @@ export default function Outreach() {
   const [busy, setBusy] = useState(''); const [err, setErr] = useState(''); const [ok, setOk] = useState('');
   const [undo, setUndo] = useState<string | null>(null); const [aiNote, setAiNote] = useState('');
   const [shot, setShot] = useState<string | null>(null); const [found, setFound] = useState<Found | null>(null); const [pick, setPick] = useState<Set<string>>(new Set()); const [drag, setDrag] = useState(false); const [secs, setSecs] = useState(0);
-  const file = useRef<HTMLInputElement>(null); const imgIn = useRef<HTMLInputElement>(null); const bodyRef = useRef<HTMLTextAreaElement>(null); const liveRef = useRef<HTMLElement>(null);
+  const [confirmModal, setConfirmModal] = useState(false);
+
+  const file = useRef<HTMLInputElement>(null);
+  const imgIn = useRef<HTMLInputElement>(null);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const liveRef = useRef<HTMLElement>(null);
+  const step1Ref = useRef<HTMLElement>(null);
+  const step2Ref = useRef<HTMLElement>(null);
+  const step3Ref = useRef<HTMLElement>(null);
+  const step4Ref = useRef<HTMLDivElement>(null);
 
   const loadCamps = useCallback(() => api<Camp[]>('/outreach/campaigns').then(setCamps).catch(() => undefined), []);
   const loadLive = useCallback((id: string) => api(`/outreach/campaigns/${id}`).then(setLive).catch(() => undefined), []);
@@ -69,6 +102,14 @@ export default function Outreach() {
     window.addEventListener('paste', h); return () => window.removeEventListener('paste', h);
   });
 
+  // Close confirmation modal on Escape
+  useEffect(() => {
+    if (!confirmModal) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setConfirmModal(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [confirmModal]);
+
   useEffect(() => { if (busy !== 'img') { setSecs(0); return; } const t = setInterval(() => setSecs((x) => x + 1), 1000); return () => clearInterval(t); }, [busy]);
   async function readImage(f: Blob) {
     if (f.size > MAX_IMG * 2) { setErr('That image is too large. Use one under 16 MB.'); return; }
@@ -92,10 +133,22 @@ export default function Outreach() {
   const minutes = Math.max(1, Math.round((n * gap * 1.3) / 60));
   const words = body.trim() ? body.trim().split(/\s+/).length : 0;
   const checks = [
-    { ok: n > 0, t: n ? `${n} email${n > 1 ? 's' : ''}` : 'Add emails' }, { ok: !!resumeId, t: resumeId ? 'Resume' : 'Pick resume' },
-    { ok: name.trim().length > 0, t: 'Name' }, { ok: subject.trim().length >= 3 && body.trim().length >= 20, t: 'Message' }, { ok: !!lim?.gmailConnected, t: lim?.gmailConnected ? 'Gmail' : 'Connect Gmail' },
+    { ok: n > 0, t: n ? `${n} email${n > 1 ? 's' : ''}` : 'Add emails' },
+    { ok: !!resumeId, t: resumeId ? 'Resume' : 'Pick resume' },
+    { ok: name.trim().length > 0, t: 'Name' },
+    { ok: subject.trim().length >= 3 && body.trim().length >= 20, t: 'Message' },
+    { ok: !!lim?.gmailConnected, t: lim?.gmailConnected ? 'Gmail' : 'Connect Gmail' },
   ];
   const ready = n > 0 && !!resumeId && name.trim() && subject.trim().length >= 3 && body.trim().length >= 20;
+
+  const missingRequirement = useMemo(() => {
+    if (n === 0) return 'Add email contacts';
+    if (!resumeId) return 'Choose a resume';
+    if (!name.trim()) return 'Name your campaign';
+    if (subject.trim().length < 3 || body.trim().length < 20) return 'Write your email';
+    if (!lim?.gmailConnected) return 'Connect Gmail in Email Setup';
+    return null;
+  }, [n, resumeId, name, subject, body, lim?.gmailConnected]);
 
   async function draft() {
     setBusy('draft'); setErr('');
@@ -118,7 +171,6 @@ export default function Outreach() {
     try { setPrev(await api('/outreach/preview', { body: { subject, body, resumeId: resumeId || undefined } })); } catch (e) { setErr(errText(e)); } finally { setBusy(''); }
   }
   async function create(start: boolean) {
-    if (start && !window.confirm(`Send ${n} emails one by one from your Gmail, about ${minutes} minutes in total, each with your resume attached?`)) return;
     setBusy(start ? 'start' : 'save'); setErr(''); setOk('');
     try {
       const r = await api('/outreach/campaigns', { body: { name, subject, body, resumeId, includeExtraFiles: extra, gapSec: gap, recipientsText: text, start } });
@@ -145,8 +197,19 @@ export default function Outreach() {
   const nowRec = recs.find((r) => r.status === 'sending') ?? (live?.status === 'running' ? recs.find((r) => r.status === 'queued') : null);
   const sending = live?.status === 'running';
 
+  // 5-step status calculation
+  const stepItems = [
+    { id: 1, label: 'Add contacts', ref: step1Ref, status: n > 0 ? 'done' : 'active' },
+    { id: 2, label: 'Write email', ref: step2Ref, status: (subject.trim().length >= 3 && body.trim().length >= 20) ? 'done' : (n > 0 ? 'active' : 'todo') },
+    { id: 3, label: 'Settings', ref: step3Ref, status: (name.trim().length > 0 && !!resumeId) ? 'done' : ((subject.trim().length >= 3 && body.trim().length >= 20) ? 'active' : 'todo') },
+    { id: 4, label: 'Preview & send', ref: step4Ref, status: live ? 'done' : ready ? 'active' : 'todo' },
+    { id: 5, label: 'Track', ref: liveRef, status: live?.status === 'done' ? 'done' : sending ? 'active' : 'todo' },
+  ];
+  const activeStepIdx = stepItems.findIndex((s) => s.status === 'active');
+  const currentStepNum = activeStepIdx !== -1 ? activeStepIdx + 1 : (stepItems.every((s) => s.status === 'done') ? 5 : 1);
+
   return (
-    <div className="ou">
+    <div className="ou ob">
       <header className="ou-bar-top">
         <div className="ou-ttl"><span className="ou-logo"><BrandMark size={34} /></span><div><h1>HR Outreach</h1><small>AI writes it, the agent sends it one by one with your resume</small></div></div>
         <div className="ou-pills">
@@ -157,19 +220,63 @@ export default function Outreach() {
         </div>
       </header>
 
+      {/* 5-Step Progress Guide */}
+      <nav className="ob-tracker" aria-label="Outreach process steps">
+        <div className="ob-stepper">
+          {stepItems.map((s, idx) => (
+            <div key={s.id} style={{ display: 'inline-flex', alignItems: 'center' }}>
+              <button
+                type="button"
+                className={`ob-step-btn ${s.status}`}
+                onClick={() => s.ref?.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                title={`Go to step ${s.id}: ${s.label}`}
+              >
+                <span className="ob-step-num">{s.status === 'done' ? '✓' : s.id}</span>
+                <span>{s.label}</span>
+              </button>
+              {idx < stepItems.length - 1 && <span className="ob-step-sep" aria-hidden="true" />}
+            </div>
+          ))}
+        </div>
+        <div className="ob-step-mobile-bar">
+          <span>Step {currentStepNum} of 5: {stepItems[currentStepNum - 1]?.label}</span>
+          <div className="ob-step-mobile-pills">
+            {stepItems.map((s) => (
+              <span key={s.id} className={`ob-step-mobile-dot ${s.status}`} />
+            ))}
+          </div>
+        </div>
+      </nav>
+
       {err && <div className="msg err" role="alert">{err}</div>}{ok && <div className="msg ok" role="status">{ok}</div>}
 
       <div className="ou-cols">
-        {/* ---------- column A: recipients ---------- */}
-        <section className="card ou-c">
-          <div className="ou-h"><span className="ou-n">1</span><h2>Who to email</h2><span className="sp" />{n > 0 && <Pill tone="ok">{n} ready</Pill>}</div>
+        {/* ---------- column A: recipients (Step 1) ---------- */}
+        <section className="card ou-c" ref={step1Ref as any} id="step-1">
+          <div className="ob-card-h">
+            <span className="ou-n">1</span>
+            <div className="ob-card-h-text">
+              <h2>1. Who do you want to email?</h2>
+              <p className="ob-help">Add recruiter, talent team, or hiring manager email addresses.</p>
+            </div>
+            {n > 0 ? <Pill tone="ok">{n} ready</Pill> : <span className="ob-badge-limit">Up to 100</span>}
+          </div>
 
           <div className={`ou-drop ${drag ? 'drag' : ''} ${busy === 'img' ? 'busy' : ''}`} onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)}
             onDrop={(e) => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files?.[0]; if (f?.type.startsWith('image/')) readImage(f); }}>
             <input ref={imgIn} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) readImage(f); e.target.value = ''; }} />
             {shot ? <img src={shot} alt="Your screenshot" /> : <span className="ou-drop-ic"><Icon name="file" size={18} /></span>}
             <div className="ou-drop-t">
-              {busy === 'img' ? <><b>AI is reading your image…</b><small>Finding every email address · {secs}s</small></> : <><b>Paste a screenshot of HR emails</b><small>Press <kbd>Ctrl</kbd>+<kbd>V</kbd>, drop an image, or <button type="button" onClick={() => imgIn.current?.click()}>choose a file</button></small></>}
+              {busy === 'img' ? <><b>AI is reading your image…</b><small>Finding every email address · {secs}s</small></> : (
+                <>
+                  <b>Upload or paste a screenshot of contacts</b>
+                  <small>
+                    <span className="ob-desktop-hint">Press <kbd>Ctrl</kbd>+<kbd>V</kbd>, drop an image, or </span>
+                    <span className="ob-touch-hint">Tap to choose a screenshot or photo </span>
+                    <button type="button" onClick={() => imgIn.current?.click()}>choose a file</button>
+                  </small>
+                </>
+              )}
             </div>
             {busy === 'img' && <span className="ou-scan" />}
           </div>
@@ -186,69 +293,183 @@ export default function Outreach() {
             </div>
           )}
 
-          <textarea className="ou-ta" rows={10} value={text} onChange={(e) => setText(e.target.value)} placeholder={SAMPLE} aria-label="HR email addresses" />
+          <label className="f ou-f">
+            <span>Paste email addresses</span>
+            <textarea className="ou-ta" rows={10} value={text} onChange={(e) => setText(e.target.value)} placeholder={`hr@acme.com\nPriya Shah <priya@zetacloud.io>\ntalent@brightpay.in, Ravi Kumar, Brightpay`} aria-label="HR email addresses" />
+          </label>
+
           <div className="ou-row">
             <input ref={file} type="file" accept=".csv,.txt,text/csv,text/plain" hidden onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ''; }} />
-            <button type="button" className="btn sm" onClick={() => file.current?.click()}><Icon name="file" size={12} />CSV / TXT</button>
-            <button type="button" className="btn sm" onClick={() => setText(SAMPLE)}>Example</button>
-            {text && <button type="button" className="btn sm" onClick={() => setText('')}>Clear</button>}
+            <button type="button" className="btn sm" onClick={() => file.current?.click()} title="Upload CSV or plain text file with email addresses"><Icon name="file" size={12} />CSV or TXT file</button>
+            <button type="button" className="btn sm" onClick={() => setText(SAMPLE)} title="Insert sample recruiters to try the flow">Fill with example</button>
+            {text && <button type="button" className="btn sm" onClick={() => setText('')} title="Clear pasted contacts">Clear</button>}
           </div>
+
           {parsed ? (
             <div className="ou-parse">
-              <div className="ou-row">
+              <div className="ob-summary-row">
                 <Pill tone="ok">{parsed.valid.length} valid</Pill>
                 {parsed.duplicates > 0 && <Pill tone="gray">{parsed.duplicates} duplicate</Pill>}
-                {parsed.invalid.length > 0 && <Pill tone="bad">{parsed.invalid.length} skipped</Pill>}
+                {parsed.invalid.length > 0 && <Pill tone="bad">{parsed.invalid.length} invalid</Pill>}
                 {parsed.truncated > 0 && <Pill tone="warn">{parsed.truncated} over limit</Pill>}
-                {parsed.alreadyContacted.length > 0 && <Pill tone="warn">{parsed.alreadyContacted.length} emailed lately</Pill>}
+                {parsed.alreadyContacted.length > 0 && <Pill tone="warn">{parsed.alreadyContacted.length} emailed recently</Pill>}
               </div>
               <div className="ou-chips">{parsed.valid.slice(0, 60).map((v) => <span key={v.email} title={v.company ?? ''}>{v.email}</span>)}{parsed.valid.length > 60 && <span>+{parsed.valid.length - 60}</span>}</div>
-              {parsed.invalid.length > 0 && <ul className="ou-bad">{parsed.invalid.slice(0, 3).map((i, k) => <li key={k}><code>{i.line}</code> {i.reason}</li>)}</ul>}
+              {parsed.invalid.length > 0 && (
+                <ul className="ou-bad">
+                  {parsed.invalid.slice(0, 3).map((i, k) => (
+                    <li key={k}><code>{i.line}</code> — {humanReason(i.reason)}</li>
+                  ))}
+                </ul>
+              )}
             </div>
-          ) : <p className="faint ou-hint">One per line: <code>hr@acme.com</code>, <code>Name &lt;hr@acme.com&gt;</code> or CSV <code>email, name, company</code>. Up to 100.</p>}
+          ) : (
+            <div className="ob-empty-state">
+              <Icon name="users" size={16} />
+              <span>No contacts yet. Paste emails above or upload a screenshot.</span>
+            </div>
+          )}
+          <p className="faint ou-hint">One per line: <code>hr@acme.com</code>, <code>Name &lt;hr@acme.com&gt;</code> or CSV <code>email, name, company</code>. Up to 100 per campaign.</p>
         </section>
 
-        {/* ---------- column B: compose ---------- */}
-        <section className="card ou-c ou-compose">
-          <div className="ou-h"><span className="ou-n">2</span><h2>Write the email</h2><span className="sp" />{cur && <span className="faint ou-att"><Icon name="file" size={11} />{cur.fileName}</span>}</div>
-          <div className="ou-ai">
-            <div className="ou-ai-row">
-              <input value={role} onChange={(e) => setRole(e.target.value)} placeholder="Role you want, e.g. Full Stack Developer" maxLength={120} aria-label="Role you want" />
-              <button type="button" className="ou-ai-go icon-only" onClick={draft} disabled={!!busy} title={busy === 'draft' ? 'Writing…' : body.trim() ? 'Rewrite with AI' : 'Write with AI'} aria-label={busy === 'draft' ? 'Writing email…' : body.trim() ? 'Rewrite email with AI' : 'Write email with AI'}>{busy === 'draft' ? <span className="spin" style={{ width: 14, height: 14, borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff' }} /> : <Icon name="spark" size={16} />}</button>
+        {/* ---------- column B: compose (Step 2) ---------- */}
+        <section className="card ou-c ou-compose" ref={step2Ref as any} id="step-2">
+          <div className="ob-card-h">
+            <span className="ou-n">2</span>
+            <div className="ob-card-h-text">
+              <h2>2. Write your email</h2>
+              <p className="ob-help">Craft a tailored outreach email with AI or write your own.</p>
             </div>
-            <div className="ou-ai-chips" role="group" aria-label="Enhance the text">
-              <span>Enhance</span>
-              {AI_ACTIONS.map(([k, label]) => <button key={k} type="button" onClick={() => enhance(k)} disabled={!!busy || body.trim().length < 20}>{busy === 'ai:' + k ? '…' : label}</button>)}
-              {undo !== null && <button type="button" className="ou-undo" onClick={() => { setBody(undo); setUndo(null); setAiNote(''); }}>↶ Undo</button>}
+            {cur && <span className="faint ou-att" title={cur.fileName}><Icon name="file" size={11} />{cur.fileName}</span>}
+          </div>
+
+          <div className="ou-ai">
+            <label className="f ou-f">
+              <span>Role you&apos;re applying for</span>
+              <div className="ou-ai-row">
+                <input value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. Full Stack Developer, Frontend Engineer" maxLength={120} aria-label="Role you're applying for" />
+                <button
+                  type="button"
+                  className="ou-ai-go"
+                  onClick={draft}
+                  disabled={!!busy}
+                  title={busy === 'draft' ? 'AI is drafting your email…' : body.trim() ? 'Rewrite with AI' : 'Draft email with AI'}
+                  aria-label="Write email with AI"
+                >
+                  <Icon name="spark" size={14} />
+                  <span>{busy === 'draft' ? 'Writing…' : body.trim() ? 'Rewrite with AI' : 'Write with AI'}</span>
+                </button>
+              </div>
+            </label>
+
+            <div className="ob-enhance-group" role="group" aria-label="Improve the draft">
+              <span className="ob-enhance-header">Improve the draft</span>
+              <div className="ob-enhance-chips">
+                {AI_ACTIONS.map(([k, label]) => (
+                  <button
+                    key={k}
+                    type="button"
+                    title={AI_TOOLTIPS[k] ?? label}
+                    onClick={() => enhance(k)}
+                    disabled={!!busy || body.trim().length < 20}
+                  >
+                    {busy === 'ai:' + k ? '…' : label}
+                  </button>
+                ))}
+                {undo !== null && (
+                  <button
+                    type="button"
+                    className="ou-undo"
+                    title="Revert back to your previous draft"
+                    onClick={() => { setBody(undo); setUndo(null); setAiNote(''); }}
+                  >
+                    ↶ Undo
+                  </button>
+                )}
+              </div>
             </div>
             {aiNote && <div className="ou-ai-note">{aiNote}</div>}
           </div>
-          <label className="f ou-f">Subject<input value={subject} onChange={(e) => setSubject(e.target.value)} maxLength={300} placeholder="Full Stack Developer — Your Name" /></label>
+
+          <label className="f ou-f">
+            <span>Subject</span>
+            <input value={subject} onChange={(e) => setSubject(e.target.value)} maxLength={300} placeholder="e.g. Application for Full Stack Developer — Your Name" />
+          </label>
+
           <div className="f ou-f">
-            <div className="ou-lab"><span>Message</span><span className="faint">{words} words</span></div>
-            <textarea ref={bodyRef} className="ou-ta" rows={11} value={body} onChange={(e) => setBody(e.target.value)} maxLength={8000} aria-label="Message" placeholder={'Hello {{name}},\n\nI am writing to ask whether {{company}} has openings for…\n\nTip: press the AI button (✨) to draft this from your resume.'} />
-            <div className="ou-tags"><span>Insert</span>{['{{name}}', '{{first_name}}', '{{company}}'].map((t) => <button key={t} type="button" onClick={() => insertTag(t)}>{t}</button>)}<small className="faint">Signature is added automatically.</small></div>
+            {/* Variable chips placed directly above editor */}
+            <div className="ob-var-wrap">
+              <div className="ob-var-row">
+                <span className="ob-var-label">Personalize</span>
+                {['{{name}}', '{{first_name}}', '{{company}}'].map((t) => (
+                  <button key={t} type="button" title={VAR_TOOLTIPS[t] ?? `Insert ${t}`} onClick={() => insertTag(t)}>{t}</button>
+                ))}
+                <span className="ob-var-example">Example: “Hello {`{{first_name}}`}” becomes “Hello Priya”</span>
+              </div>
+            </div>
+
+            <div className="ou-lab">
+              <span>Message</span>
+              <span className="faint">{words} words · Short emails (80 to 150 words) get more replies</span>
+            </div>
+            <textarea
+              ref={bodyRef}
+              className="ou-ta ob-msg-ta"
+              rows={11}
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              maxLength={8000}
+              aria-label="Message"
+              placeholder={'e.g. Dear {{first_name}},\n\nI noticed {{company}} is growing its engineering team and wanted to reach out regarding…\n\nTip: Press “Write with AI” above to draft this from your resume.'}
+            />
+            <small className="faint" style={{ marginTop: 2 }}>Signature is added automatically.</small>
           </div>
         </section>
 
-        {/* ---------- column C: settings + live ---------- */}
+        {/* ---------- column C: settings (Step 3) + live (Step 5) ---------- */}
         <div className="ou-side">
-          <section className="card ou-c">
-            <div className="ou-h"><span className="ou-n">3</span><h2>Send settings</h2></div>
-            <label className="f ou-f">Campaign name<input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Node.js jobs, November" maxLength={120} /></label>
-            <label className="f ou-f">Resume to attach
+          <section className="card ou-c" ref={step3Ref as any} id="step-3">
+            <div className="ob-card-h">
+              <span className="ou-n">3</span>
+              <div className="ob-card-h-text">
+                <h2>3. Send settings</h2>
+                <p className="ob-help">Set your sending pace and resume attachment.</p>
+              </div>
+            </div>
+            <label className="f ou-f">
+              <span>Campaign name</span>
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Full Stack Jobs, November" maxLength={120} />
+            </label>
+            <label className="f ou-f">
+              <span>Resume to attach</span>
               <select value={resumeId} onChange={(e) => setResumeId(e.target.value)}>{resumes.length === 0 && <option value="">Upload a resume PDF first</option>}{resumes.map((r) => <option key={r._id} value={r._id}>{r.title} · {r.fileName}</option>)}</select>
               {resumes.length === 0 && <span className="faint">Add a PDF in <a href="/resumes" style={{ color: 'var(--primary-600)' }}>Resume Studio</a>.</span>}
             </label>
             <div className="ou-two">
-              <label className="f ou-f">Gap<select value={gap} onChange={(e) => setGap(Number(e.target.value))}>{[10, 15, 20, 30, 45, 60, 90, 120, 180].map((s) => <option key={s} value={s}>{s >= 60 ? `${s / 60} min` : `${s} sec`}</option>)}</select></label>
-              <label className="ou-check"><input type="checkbox" checked={extra} onChange={(e) => setExtra(e.target.checked)} /><span>Extra files</span></label>
+              <label className="f ou-f">
+                <span>Pacing (gap between emails)</span>
+                <select value={gap} onChange={(e) => setGap(Number(e.target.value))}>{[10, 15, 20, 30, 45, 60, 90, 120, 180].map((s) => <option key={s} value={s}>{s >= 60 ? `${s / 60} min` : `${s} sec`}</option>)}</select>
+              </label>
+              <label className="ou-check" title="Attach additional portfolio or project files uploaded in Resume Studio">
+                <input type="checkbox" checked={extra} onChange={(e) => setExtra(e.target.checked)} />
+                <span>Extra files</span>
+              </label>
             </div>
-            {gap < 30 && <div className="faint ou-warn">Very fast sending can look like spam to Gmail. For many emails, 30 sec or more is safer.</div>}
+            <div className="faint ou-warn">
+              {gap < 30 ? 'Very fast sending can look like spam to Gmail. A 30–60 second gap is safer.' : 'A 30–60 second gap protects your Gmail sender reputation from spam filters.'}
+            </div>
           </section>
 
-          <section className="card ou-c ou-live" ref={liveRef as any}>
-            <div className="ou-h"><h2>Live sending</h2><span className="sp" />{live && <Pill tone={TONES[live.status] ?? ''}>{live.status}</Pill>}</div>
+          {/* ---------- Step 5: Live sending ---------- */}
+          <section className="card ou-c ou-live" ref={liveRef as any} id="step-5">
+            <div className="ob-card-h">
+              <span className="ou-n">5</span>
+              <div className="ob-card-h-text">
+                <h2>Track live sending</h2>
+                <p className="ob-help">Real-time status of outgoing emails.</p>
+              </div>
+              {live && <Pill tone={TONES[live.status] ?? ''}>{live.status}</Pill>}
+            </div>
             {!live ? (
               <div className="ou-idle"><div className="ou-stage idle"><span className="ou-doc"><i /><i /><i /></span><span className="ou-track" /><span className="ou-env"><Icon name="send" size={14} /></span></div><small>Start a campaign and watch each email fly out here.</small></div>
             ) : (
@@ -271,7 +492,7 @@ export default function Outreach() {
                 <div className="ou-row">
                   {live.status === 'running' && <button className="btn sm" onClick={() => act(live.id, 'pause')}><Icon name="pause" size={12} />Pause</button>}
                   {(live.status === 'paused' || live.status === 'draft') && <button className="btn sm primary" onClick={() => act(live.id, 'start')}><Icon name="send" size={12} />{live.status === 'draft' ? 'Start' : 'Resume'}</button>}
-                  {failN > 0 && <button className="btn sm" onClick={() => act(live.id, 'retry')}>Retry failed</button>}
+                  {failN > 0 && <button className="btn sm" onClick={() => act(live.id, 'retry')}><Icon name="retry" size={12} />Retry failed</button>}
                   {['running', 'paused', 'draft'].includes(live.status) && <button className="btn sm" onClick={() => act(live.id, 'cancel')}>Cancel</button>}
                 </div>
               </>
@@ -280,14 +501,30 @@ export default function Outreach() {
         </div>
       </div>
 
-      <div className="ou-bottom card">
+      {/* ---------- Step 4: Preview and send Action Bar ---------- */}
+      <div className="ou-bottom card" ref={step4Ref} id="step-4">
         <ul className="ou-checks">{checks.map((c) => <li key={c.t} className={c.ok ? 'ok' : ''}><i>{c.ok ? '✓' : ''}</i>{c.t}</li>)}</ul>
         <span className="sp" />
-        <button type="button" className="btn sm" onClick={preview} disabled={!body.trim() || !!busy}><Icon name="search" size={13} />{busy === 'prev' ? 'Building…' : 'Preview'}</button>
-        <button type="button" className="btn sm" onClick={() => create(false)} disabled={!ready || !!busy}>Save draft</button>
-        <button type="button" className="btn primary ou-start" onClick={() => create(true)} disabled={!ready || !!busy}><Icon name="send" size={14} />{busy === 'start' ? 'Starting…' : `Start sending${n ? ` to ${n}` : ''}`}</button>
+
+        {!ready && missingRequirement && (
+          <span className="ob-missing-req" title={`Required: ${missingRequirement}`}><Icon name="alert" size={13} />Missing: {missingRequirement}</span>
+        )}
+
+        <button type="button" className="btn sm" onClick={preview} disabled={!body.trim() || !!busy} title="Preview resolved email with actual contact variables"><Icon name="search" size={13} />{busy === 'prev' ? 'Building…' : 'Preview'}</button>
+        <button type="button" className="btn sm" onClick={() => create(false)} disabled={!ready || !!busy} title="Save this campaign setup without sending">Save draft</button>
+        <button
+          type="button"
+          className="btn primary ou-start"
+          onClick={() => setConfirmModal(true)}
+          disabled={!ready || !!busy}
+          title={ready ? 'Review and launch this outreach campaign' : `Disabled: ${missingRequirement}`}
+        >
+          <Icon name="send" size={14} />
+          {busy === 'start' ? 'Starting…' : `Start sending${n ? ` to ${n}` : ''}`}
+        </button>
       </div>
 
+      {/* Campaigns History */}
       {camps.length > 0 && (
         <section className="card ou-c">
           <div className="ou-h"><h2>Campaigns</h2><span className="sp" /><small className="faint">{camps.length} total</small></div>
@@ -303,11 +540,58 @@ export default function Outreach() {
         </section>
       )}
 
+      {/* Preview Modal */}
       {prev && (
         <div className="ou-modal" role="dialog" aria-modal="true" aria-label="Email preview" onClick={() => setPrev(null)}>
           <div className="ou-modal-in" onClick={(e) => e.stopPropagation()}>
-            <div className="ou-sub"><span><b>Subject:</b> {prev.subject}</span><button className="btn sm" onClick={() => setPrev(null)}>Close</button></div>
+            <div className="ou-sub">
+              <div>
+                <b>Subject:</b> {prev.subject}
+                <div className="faint" style={{ fontSize: 11, marginTop: 2 }}>
+                  From: {lim?.gmailEmail || 'your connected Gmail'} · To: {n} recipient{n === 1 ? '' : 's'} · Gap: {gap}s
+                </div>
+              </div>
+              <button className="btn sm" onClick={() => setPrev(null)} aria-label="Close preview"><Icon name="close" size={13} />Close</button>
+            </div>
             <iframe title="Email preview" sandbox="" srcDoc={prev.html} />
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Dialog before Campaign Launch */}
+      {confirmModal && (
+        <div className="ob-confirm-backdrop" role="dialog" aria-modal="true" aria-labelledby="ob-confirm-title" onClick={() => setConfirmModal(false)}>
+          <div className="ob-confirm-box" onClick={(e) => e.stopPropagation()}>
+            <div className="ob-confirm-header">
+              <h3 id="ob-confirm-title">Ready to launch outreach?</h3>
+              <button type="button" className="btn sm" onClick={() => setConfirmModal(false)} aria-label="Close dialog"><Icon name="close" size={13} /></button>
+            </div>
+            <div className="ob-confirm-body">
+              <p>
+                Send <b>{n} email{n === 1 ? '' : 's'}</b> from <b>{lim?.gmailEmail || 'your connected Gmail'}</b>?
+              </p>
+              <div className="ob-confirm-card">
+                <div className="ob-confirm-card-row"><span>Sending pace:</span><b>1 email every {gap}s</b></div>
+                <div className="ob-confirm-card-row"><span>Total duration:</span><b>approx. {minutes} minutes</b></div>
+                <div className="ob-confirm-card-row"><span>Resume:</span><b>{cur?.fileName || cur?.title || 'Selected resume PDF'}</b></div>
+                <div className="ob-confirm-card-row"><span>Extra files:</span><b>{extra ? 'Included' : 'None'}</b></div>
+              </div>
+              <small className="faint">Each email is personalized and sent individually through your Gmail account to ensure maximum deliverability.</small>
+            </div>
+            <div className="ob-confirm-footer">
+              <button type="button" className="btn" onClick={() => setConfirmModal(false)}>Cancel</button>
+              <button
+                type="button"
+                className="btn primary"
+                onClick={() => {
+                  setConfirmModal(false);
+                  create(true);
+                }}
+                disabled={!!busy}
+              >
+                <Icon name="send" size={14} /> Send now
+              </button>
+            </div>
           </div>
         </div>
       )}

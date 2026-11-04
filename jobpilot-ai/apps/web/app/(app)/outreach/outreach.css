@@ -1,0 +1,367 @@
+/* ==========================================================================
+   HR Outreach Redesign — Phase 2 Scoped Styles (.ob)
+   ========================================================================== */
+
+.ob {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ---------- 5-Step Tracker ---------- */
+.ob-tracker {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  box-shadow: var(--shadow);
+}
+
+.ob-stepper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.ob-stepper::-webkit-scrollbar {
+  display: none;
+}
+
+.ob-step-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 99px;
+  border: 1px solid transparent;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  min-height: 32px;
+}
+
+.ob-step-btn:hover {
+  background: var(--primary-50);
+  color: var(--primary-600);
+}
+
+.ob-step-btn.done {
+  background: var(--ok-bg);
+  color: var(--ok);
+  border-color: rgba(16, 185, 129, 0.25);
+}
+
+.ob-step-btn.active {
+  background: var(--primary-50);
+  color: var(--primary-600);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary);
+}
+
+.ob-step-num {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.08);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.ob-step-btn.done .ob-step-num {
+  background: var(--ok);
+  color: #fff;
+}
+
+.ob-step-btn.active .ob-step-num {
+  background: var(--primary);
+  color: #fff;
+}
+
+.ob-step-sep {
+  flex: 0 0 12px;
+  height: 1px;
+  background: var(--line);
+}
+
+/* Mobile Step Bar (compact) */
+.ob-step-mobile-bar {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.ob-step-mobile-pills {
+  display: flex;
+  gap: 4px;
+}
+.ob-step-mobile-dot {
+  width: 18px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+  transition: background 0.2s;
+}
+.ob-step-mobile-dot.done {
+  background: var(--ok);
+}
+.ob-step-mobile-dot.active {
+  background: var(--primary);
+}
+
+@media (max-width: 640px) {
+  .ob-stepper { display: none; }
+  .ob-step-mobile-bar { display: flex; }
+}
+
+/* ---------- Typography & Helpers ---------- */
+.ob-card-h {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.ob-card-h-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.ob-card-h-text h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--ink);
+}
+
+.ob-help {
+  font-size: 11.5px;
+  color: var(--faint);
+  margin-top: 2px;
+  line-height: 1.35;
+}
+
+.ob-badge-limit {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--faint);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  padding: 2px 7px;
+  border-radius: 99px;
+  white-space: nowrap;
+}
+
+/* Touch vs Fine Pointer hints */
+.ob-desktop-hint { display: inline; }
+.ob-touch-hint { display: none; }
+@media (hover: none) and (pointer: coarse) {
+  .ob-desktop-hint { display: none; }
+  .ob-touch-hint { display: inline; }
+}
+
+/* Live parsing summary */
+.ob-summary-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.ob-empty-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px dashed var(--line);
+  border-radius: 9px;
+  color: var(--faint);
+  font-size: 12px;
+}
+
+/* Group Enhancement Chips */
+.ob-enhance-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ob-enhance-header {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--faint);
+}
+
+.ob-enhance-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+}
+
+@media (max-width: 480px) {
+  .ob-enhance-chips {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+  .ob-enhance-chips button {
+    scroll-snap-align: start;
+    flex: 0 0 auto;
+  }
+}
+
+/* Variable Chips Above Editor */
+.ob-var-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 2px;
+}
+
+.ob-var-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ob-var-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--faint);
+}
+
+.ob-var-example {
+  font-size: 11px;
+  color: var(--faint);
+  font-style: italic;
+}
+
+.ob-msg-ta {
+  width: 100%;
+  min-height: 220px;
+  resize: vertical;
+  font: 13px/1.5 var(--font, Inter), system-ui, sans-serif;
+}
+
+@media (max-width: 640px) {
+  .ob-msg-ta {
+    min-height: 180px;
+    resize: none;
+  }
+}
+
+/* Missing Requirement in Bottom Action Bar */
+.ob-missing-req {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--warn);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  background: var(--warn-bg);
+  border-radius: 99px;
+  white-space: nowrap;
+}
+
+/* Confirmation Dialog */
+.ob-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  animation: ob-fade-in 0.15s ease-out;
+}
+
+.ob-confirm-box {
+  width: min(460px, 100%);
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 20px 45px -10px rgba(15, 23, 42, 0.35);
+  border: 1px solid var(--line);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.ob-confirm-header {
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line-2);
+}
+
+.ob-confirm-header h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.ob-confirm-body {
+  padding: 20px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-2);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ob-confirm-card {
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.ob-confirm-card-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ob-confirm-footer {
+  padding: 14px 20px;
+  background: var(--bg);
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@keyframes ob-fade-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
