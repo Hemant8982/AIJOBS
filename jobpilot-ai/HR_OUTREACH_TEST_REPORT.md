@@ -1,45 +1,32 @@
 # HR Outreach Redesign — Test Report
 
-## Phase 4 Responsive Verification & Regression Audit
+## Phase 5 Functional Verification & Feature Audit
 
-### Viewports Audited
-| Viewport | Dimensions (W × H) | Layout Mode | Observations & Results |
-|---|---|---|---|
-| **Ultra-compact Phone** | 320 × 568 px | Mobile single column | Action bar drops to 2-row button grid without overflow; drawer opens smoothly |
-| **Small Phone** | 360 × 640 px | Mobile single column | Full checklist collapses into summary pill; inputs render at 16px (no iOS auto-zoom) |
-| **Standard iPhone** | 375 × 667 px / 390 × 844 px | Mobile single column | Touch targets >= 44px; safe-area bottom inset honored; hamburger button responsive |
-| **Large Phone** | 414 × 896 px / 430 × 932 px | Mobile single column | Single column card stack; campaign cards 1 col; preview modal opens full-screen sheet |
-| **Tablet Portrait** | 768 × 1024 px | 2-column responsive layout | Action bar in-flow/sticky; topbar displays full desktop navigation links; campaigns 2 cols |
-| **Compact Laptop** | 1024 × 768 px | 3-column desktop layout | Step tracker fully visible; bottom bar sticky without obscuring message textarea |
-| **Desktop Baseline** | 1366 × 768 px | 3-column desktop layout | Bottom padding `--ob-bar-height` protects textarea; AI button square with flat colour |
-| **Wide Desktop** | 1920 × 1080 px | 3-column desktop layout | Centered max-width shell; campaign cards 3 cols; zero layout clipping |
+### Section 9 Functional Checklist (Pass / Fail Results)
 
----
-
-### App Pages Regression Check (Shared Shell Verification at ≥701px and <701px)
-
-| Page Route | Desktop (≥701px) Status | Mobile (<701px) Status | Notes |
-|---|---|---|---|
-| `/dashboard` | Unchanged | Mobile drawer menu opens & navigates | Topbar title adapts with ellipsis |
-| `/discover` (Job Finder) | Unchanged | Mobile drawer works; `.jf-bar` sticky unaffected | Topbar height does not collide with search rail |
-| `/analyzer` (Job Analyzer) | Unchanged | Mobile drawer works | Form stack cleanly |
-| `/applications` (Kanban) | Unchanged | Mobile drawer works | Horizontal board scroll unaffected |
-| `/mail` (Mailbox) | Unchanged | Mobile drawer works | `.mailpage` height rules operate properly |
-| `/profiles` (Career Profiles) | Unchanged | Accessible via drawer | "Profiles" button in topbar smoothly transitions to drawer |
-| `/settings/email` (Email Setup) | Unchanged | Mobile drawer works | Gmail connection cards display cleanly |
-| `/agent` (AI Agent) | Unchanged | Mobile drawer works | Agent feed scrolls smoothly |
-| `/analytics` | Unchanged | Mobile drawer works | Analytics metrics cards wrap cleanly |
-| `/admin/*` | Unchanged | Mobile drawer works | Super admin section links accessible in drawer |
+| # | Feature / Test Item | Expected Result | Status | Notes |
+|---|---|---|---|---|
+| 1 | **Paste emails in all supported formats** | Handles plain email (`hr@acme.com`), named email (`Priya Shah <priya@zeta.io>`), and CSV line (`email, name, company`). Invalid lines highlighted with reason. | **PASS** | Debounced 350ms to `POST /outreach/parse`. Valid, duplicate, invalid, truncated, and alreadyContacted pills render correctly. |
+| 2 | **CSV & TXT import, Example button, 100-cap** | Clicking "CSV or TXT file" reads file as text and appends. "Fill with example" fills sample. Server 100 limit capped and surfaced. | **PASS** | `FileReader.readAsText` intact; `SAMPLE` data intact; `parsed.truncated` shows warning pill. |
+| 3 | **Screenshot extraction (paste, drag-drop, file picker)** | Pasting image, dropping onto zone, or choosing file triggers canvas compression and `POST /outreach/from-image`. Found contacts can be selected. | **PASS** | `prepImage` downscales to 1600px; timer ticks; selections toggle All/None; "Add X selected" formats and appends to editor. |
+| 4 | **Role input + AI generate & Enhance chips** | Role input triggers `POST /outreach/draft` for subject and body. All 6 Enhance chips (`improve`, `shorter`, `friendlier`, `formal`, `confident`, `grammar`) work with 1-step undo. | **PASS** | Role placeholder intact; AI drafting functional; undo reverts previous body text accurately. |
+| 5 | **Variable chips insertion & resolution** | Clicking `{{name}}`, `{{first_name}}`, or `{{company}}` inserts tag at cursor caret position. Resolved properly in preview. | **PASS** | `selectionStart`/`selectionEnd` slicing logic intact; cursor focus maintained via `requestAnimationFrame`. |
+| 6 | **Campaign settings (resume, extra files, gap, name)** | Resume dropdown, extra files checkbox, gap select (10–180s), and campaign name persist and pass to campaign creation payload. | **PASS** | Filtered for valid resumes (`fileSize > 0`); `cur` resume metadata renders in confirmation dialog. |
+| 7 | **Gmail status & Connect link** | Shows "Gmail connected" or "Connect Gmail" with indicator dot. Connect link routes to `/settings/email`. | **PASS** | Updated to Next.js `<Link href="/settings/email">` for smooth client routing. Mode pill indicates Live vs Test. |
+| 8 | **Preview modal & Save draft** | Preview shows subject, From/To metadata, gap, and email HTML. Save draft creates campaign with `start: false`. | **PASS** | Preview opens in modal (fullscreen sheet on mobile) and closes on `Esc`; Save draft saves without sending. |
+| 9 | **Confirmation dialog & double-submit prevention** | "Start sending" opens confirmation dialog with campaign summary. Cancel does nothing. Send now starts exactly 1 campaign. | **PASS** | Modal displays count, pace, duration, resume; `disabled={!!busy}` prevents double submit; `create(true)` initiated on confirm. |
+| 10 | **Daily limit display & live progress** | Displays `X/Y today` with mini progress bar. Live polling every 3s during active run. Sent/Waiting/Failed/Skipped counts. | **PASS** | Polling interval active when running; failure messages translated to human language; retry button appears if failed > 0. |
+| 11 | **Campaign history loads & expands** | History list shows campaign name, status pill, progress bar, counts. Clicking a campaign scrolls and loads live view. | **PASS** | `setLiveId(c.id)` triggers `loadLive(id)` and smooth scrolls to Step 5. |
+| 12 | **Keyboard & Accessibility** | Tab order logical, `Esc` closes dialogs/drawer, focus returns to trigger, controls have accessible names, color not sole indicator. | **PASS** | Esc closes drawer, confirmation modal, and preview modal; all controls have `aria-label`/`title`; text labels and icons pair with colors. |
 
 ---
 
-### Functional Verification & Type Check
-- **TypeScript Check**: `npx tsc --noEmit` on `apps/web` executed with exit code `0` (clean, 0 type errors).
-- **All State Variables & Handlers**: All 24+ core state variables (`text`, `parsed`, `resumes`, `resumeId`, `name`, `role`, `subject`, `body`, `gap`, `extra`, `lim`, `camps`, `liveId`, `live`, `prev`, `busy`, `err`, `ok`, `undo`, `aiNote`, `shot`, `found`, `pick`, `drag`, `secs`, `confirmModal`) preserved identically.
-- **Virtual Keyboard Handling**: `visualViewport` listener toggles `.kb-open` to switch action bar position from fixed to static when keyboard is up.
+### Backend API Integrity Check
+- `git diff --stat -- apps/api`: **Clean / Empty** (0 files modified, 0 lines changed in `apps/api`).
+- No database schemas, auth logic, request/response models, or sending algorithms were touched.
 
 ---
 
-### Remaining Work
-- Implement Phase 5: Verification of all existing features with mock data / test flow.
-- Implement Phase 6: Final cross-viewport test matrix and build readiness audit.
+### Build & Type Check
+- Command: `npx tsc --noEmit`
+- Result: **Exit Code 0** (0 type errors, 0 compilation warnings).
