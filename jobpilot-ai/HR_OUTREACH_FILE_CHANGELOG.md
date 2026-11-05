@@ -47,3 +47,11 @@
 |---|---|---|---|---|---|
 | `apps/web/app/(app)/outreach/page.tsx` | Added `Escape` key handler for Preview modal; updated Gmail setup link to Next.js `<Link>`; added desktop missing requirement badge | Ensure consistent keyboard accessibility and navigation | Preview modal, action bar, topbar pills | No (strictly additive fixes) | Phase 5 |
 | `apps/web/app/(app)/outreach/outreach.css` | Added `.ob-desktop-missing` style with media query hiding on `<= 768px` | Display missing requirement warning clearly on desktop screens without cluttering mobile bar | Action bar (`.ob-desktop-missing`) | No | Phase 5 |
+
+---
+
+### Phase 6: Viewport Safeguards & Box-Sizing Normalization
+
+| File Path | What Changed | Why | Components / Styles Affected | Behavior Affected? | Phase |
+|---|---|---|---|---|---|
+| `apps/web/app/(app)/outreach/outreach.css` | Added `min-width: 0; max-width: 100%;` and `box-sizing: border-box;` on all cards, columns, and inputs | Ensure zero horizontal overflow across narrowest viewports down to 320px | `.ob`, `.ob .ou-cols`, `.ob .ou-c`, `.ob textarea`, `.ob input` | No | Phase 6 |
