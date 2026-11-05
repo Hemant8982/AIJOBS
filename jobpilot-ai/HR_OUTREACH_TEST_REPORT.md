@@ -1,30 +1,45 @@
 # HR Outreach Redesign — Test Report
 
-## Phase 1 Baseline Inspection
+## Phase 4 Responsive Verification & Regression Audit
 
-### Viewports Audited (Static / Architectural Audit)
-- **Desktop (1366 × 768px)**: Audited via baseline desktop capture and CSS inspection of `.ou-cols`.
-- **Mobile (390 × 844px)**: Audited via `@media (max-width: 860px)` and `@media (max-width: 700px)` rules in `apps/web/app/globals.css`.
+### Viewports Audited
+| Viewport | Dimensions (W × H) | Layout Mode | Observations & Results |
+|---|---|---|---|
+| **Ultra-compact Phone** | 320 × 568 px | Mobile single column | Action bar drops to 2-row button grid without overflow; drawer opens smoothly |
+| **Small Phone** | 360 × 640 px | Mobile single column | Full checklist collapses into summary pill; inputs render at 16px (no iOS auto-zoom) |
+| **Standard iPhone** | 375 × 667 px / 390 × 844 px | Mobile single column | Touch targets >= 44px; safe-area bottom inset honored; hamburger button responsive |
+| **Large Phone** | 414 × 896 px / 430 × 932 px | Mobile single column | Single column card stack; campaign cards 1 col; preview modal opens full-screen sheet |
+| **Tablet Portrait** | 768 × 1024 px | 2-column responsive layout | Action bar in-flow/sticky; topbar displays full desktop navigation links; campaigns 2 cols |
+| **Compact Laptop** | 1024 × 768 px | 3-column desktop layout | Step tracker fully visible; bottom bar sticky without obscuring message textarea |
+| **Desktop Baseline** | 1366 × 768 px | 3-column desktop layout | Bottom padding `--ob-bar-height` protects textarea; AI button square with flat colour |
+| **Wide Desktop** | 1920 × 1080 px | 3-column desktop layout | Centered max-width shell; campaign cards 3 cols; zero layout clipping |
 
-### Baseline Issues Identified
-1. **Desktop (1366px)**:
-   - Sticky action bar `.ou-bottom` (`position: sticky; bottom: 8px`) overlaps the lower portions of column 2 (Message textarea and tag insert chips) when screen height is constrained.
-   - The 3-column grid (`.ou-cols`) does not have structured step numbering for preview/sending or tracking (only steps 1, 2, and 3 are numbered).
-   - "Live sending" card in column 3 is a large empty state when no campaign is running.
-   - Top banner pills ("Gmail connected", "0 ready", "0 /50 today", "Live sending") have identical styling and lack clear hierarchy.
+---
 
-2. **Mobile (390px)**:
-   - In `apps/web/app/globals.css`, `@media (max-width: 700px)` converts `.side` into a static wrapping horizontal row. Every nav link stacks above the main page content, pushing page content far down.
-   - Form inputs across the app use `font-size: 13px`. On iOS Safari (< 16px), tapping into any input triggers an automatic page zoom.
-   - Interactive chips and buttons in `.ou-ai-chips` and `.ou-tags` are 22–28px in height, falling below the recommended 44×44px mobile touch target size.
+### App Pages Regression Check (Shared Shell Verification at ≥701px and <701px)
 
-### Functional Verification (Phase 1)
-- Code integrity: Verified that no application code was altered during Phase 1.
-- Type check: `npx tsc --noEmit` runs clean on `apps/web`.
+| Page Route | Desktop (≥701px) Status | Mobile (<701px) Status | Notes |
+|---|---|---|---|
+| `/dashboard` | Unchanged | Mobile drawer menu opens & navigates | Topbar title adapts with ellipsis |
+| `/discover` (Job Finder) | Unchanged | Mobile drawer works; `.jf-bar` sticky unaffected | Topbar height does not collide with search rail |
+| `/analyzer` (Job Analyzer) | Unchanged | Mobile drawer works | Form stack cleanly |
+| `/applications` (Kanban) | Unchanged | Mobile drawer works | Horizontal board scroll unaffected |
+| `/mail` (Mailbox) | Unchanged | Mobile drawer works | `.mailpage` height rules operate properly |
+| `/profiles` (Career Profiles) | Unchanged | Accessible via drawer | "Profiles" button in topbar smoothly transitions to drawer |
+| `/settings/email` (Email Setup) | Unchanged | Mobile drawer works | Gmail connection cards display cleanly |
+| `/agent` (AI Agent) | Unchanged | Mobile drawer works | Agent feed scrolls smoothly |
+| `/analytics` | Unchanged | Mobile drawer works | Analytics metrics cards wrap cleanly |
+| `/admin/*` | Unchanged | Mobile drawer works | Super admin section links accessible in drawer |
+
+---
+
+### Functional Verification & Type Check
+- **TypeScript Check**: `npx tsc --noEmit` on `apps/web` executed with exit code `0` (clean, 0 type errors).
+- **All State Variables & Handlers**: All 24+ core state variables (`text`, `parsed`, `resumes`, `resumeId`, `name`, `role`, `subject`, `body`, `gap`, `extra`, `lim`, `camps`, `liveId`, `live`, `prev`, `busy`, `err`, `ok`, `undo`, `aiNote`, `shot`, `found`, `pick`, `drag`, `secs`, `confirmModal`) preserved identically.
+- **Virtual Keyboard Handling**: `visualViewport` listener toggles `.kb-open` to switch action bar position from fixed to static when keyboard is up.
+
+---
 
 ### Remaining Work
-- Implement Phase 2: Labels, 5 distinct steps, and confirmation dialog.
-- Implement Phase 3: Desktop layout refinement and dedicated CSS.
-- Implement Phase 4: Mobile drawer in `layout.tsx` and responsive CSS.
-- Implement Phase 5 & 6: Full functional testing and build verification.
-
+- Implement Phase 5: Verification of all existing features with mock data / test flow.
+- Implement Phase 6: Final cross-viewport test matrix and build readiness audit.
