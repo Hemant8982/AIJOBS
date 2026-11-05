@@ -365,3 +365,20 @@
   to { opacity: 1; transform: scale(1); }
 }
 
+
+/* ── AI button: icon-only, flat single colour ── */
+.ob .ou-ai-go.icon-only {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  flex: 0 0 38px;
+  border-radius: 10px;
+  background: var(--primary);
+  box-shadow: none;
+  transition: transform .15s, background-color .15s;
+}
+.ob .ou-ai-go.icon-only:hover:not(:disabled) {
+  background: var(--primary-600);
+  box-shadow: none;
+  transform: translateY(-1px);
+}

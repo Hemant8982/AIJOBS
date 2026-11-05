@@ -350,14 +350,13 @@ export default function Outreach() {
                 <input value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. Full Stack Developer, Frontend Engineer" maxLength={120} aria-label="Role you're applying for" />
                 <button
                   type="button"
-                  className="ou-ai-go"
+                  className="ou-ai-go icon-only"
                   onClick={draft}
                   disabled={!!busy}
                   title={busy === 'draft' ? 'AI is drafting your email…' : body.trim() ? 'Rewrite with AI' : 'Draft email with AI'}
-                  aria-label="Write email with AI"
+                  aria-label={busy === 'draft' ? 'Writing…' : body.trim() ? 'Rewrite with AI' : 'Write with AI'}
                 >
-                  <Icon name="spark" size={14} />
-                  <span>{busy === 'draft' ? 'Writing…' : body.trim() ? 'Rewrite with AI' : 'Write with AI'}</span>
+                  <Icon name="spark" size={18} />
                 </button>
               </div>
             </label>
