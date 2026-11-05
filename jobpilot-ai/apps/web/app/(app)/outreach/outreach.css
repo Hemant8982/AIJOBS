@@ -701,3 +701,19 @@
     display: none !important;
   }
 }
+
+
+/* Viewport safety: prevent horizontal scroll on any narrow viewport */
+.ob,
+.ob .ou-cols,
+.ob .ou-cols > *,
+.ob .ou-c {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.ob textarea,
+.ob input {
+  max-width: 100%;
+  box-sizing: border-box;
+}
