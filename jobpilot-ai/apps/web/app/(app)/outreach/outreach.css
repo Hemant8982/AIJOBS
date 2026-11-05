@@ -382,3 +382,313 @@
   box-shadow: none;
   transform: translateY(-1px);
 }
+
+
+/* ==========================================================================
+   Phase 4: Mobile Responsive Layout & Action Bar
+   ========================================================================== */
+
+/* Bottom padding to protect content from fixed/sticky action bar */
+.ob {
+  --ob-bar-height: 80px;
+  padding-bottom: var(--ob-bar-height);
+}
+
+@media (max-width: 768px) {
+  .ob {
+    --ob-bar-height: 125px;
+  }
+}
+
+/* 16px inputs on mobile touch screens to prevent iOS Safari auto-zoom */
+@media (max-width: 700px) {
+  .ob input,
+  .ob select,
+  .ob textarea {
+    font-size: 16px !important;
+  }
+  .ob input {
+    height: 42px;
+  }
+  .ob select {
+    height: 42px;
+  }
+
+  /* Interactive elements minimum 44px hit target */
+  .ob button,
+  .ob .btn,
+  .ob .ou-tags button,
+  .ob .ob-enhance-chips button {
+    min-height: 44px;
+  }
+
+  /* Upload zone touch tap area */
+  .ob .ou-drop {
+    min-height: 100px;
+    padding: 16px;
+  }
+}
+
+/* ---------- Action Bar Responsive System ---------- */
+.ob-action-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  border-radius: 14px;
+  position: sticky;
+  bottom: 12px;
+  z-index: 20;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.16);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--line);
+}
+
+.ob-bar-summary {
+  display: none;
+}
+
+.ob-desktop-sp {
+  flex: 1;
+}
+
+.ob-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Checklist icon styling */
+.ob .ou-checks {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 12px;
+  color: var(--faint);
+}
+
+.ob .ou-checks li {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ob .ou-checks li i {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--line-2);
+  color: var(--faint);
+  font-style: normal;
+}
+
+.ob .ou-checks li.ok i {
+  background: #ECFDF5;
+  color: #059669;
+}
+
+.ob .ou-checks li.ok {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* Mobile Action Bar (< 768px) */
+@media (max-width: 768px) {
+  .ob-action-bar {
+    position: fixed;
+    inset: auto 0 0 0;
+    width: 100%;
+    border-radius: 18px 18px 0 0;
+    padding: 10px 14px calc(env(safe-area-inset-bottom, 8px) + 8px);
+    box-shadow: 0 -4px 26px rgba(15, 23, 42, 0.18);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    z-index: 40;
+  }
+
+  .ob-desktop-sp {
+    display: none;
+  }
+
+  /* When virtual keyboard is open, un-fix the bar to prevent blocking the input */
+  .ob-action-bar.kb-open {
+    position: static !important;
+    box-shadow: none !important;
+    border-radius: 12px !important;
+    margin-top: 14px !important;
+  }
+
+  /* Row 1: Summary pill & missing requirement alert */
+  .ob-bar-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .ob-bar-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: 0;
+    padding: 4px 6px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--ink-2);
+    min-height: 32px !important;
+  }
+
+  .ob-ready-pill {
+    padding: 2px 8px;
+    border-radius: 99px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    font-weight: 600;
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+
+  .ob-ready-pill.ready {
+    background: #ECFDF5;
+    border-color: #A7F3D0;
+    color: #065F46;
+  }
+
+  .ob-toggle-icon {
+    font-size: 9px;
+    color: var(--faint);
+  }
+
+  /* Checklist expandable drawer/tray on mobile */
+  .ob-checks-list {
+    display: none !important;
+  }
+
+  .ob-checks-list.open {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    padding: 8px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    width: 100%;
+  }
+
+  /* Row 2: Three buttons in mobile grid */
+  .ob-bar-actions {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .ob-action-btn {
+    min-height: 44px;
+    font-size: 13px;
+    justify-content: center;
+    padding: 0 12px;
+  }
+
+  .ob-btn-start {
+    font-weight: 700;
+  }
+}
+
+/* Extra-narrow screens (<= 340px) */
+@media (max-width: 340px) {
+  .ob-bar-actions {
+    grid-template-columns: auto 1fr;
+  }
+  .ob-btn-prev {
+    grid-column: span 1;
+  }
+  .ob-btn-save {
+    grid-column: span 1;
+  }
+  .ob-btn-start {
+    grid-column: span 2;
+  }
+}
+
+/* Fullscreen Preview Modal on Mobile (< 700px) */
+@media (max-width: 700px) {
+  .ob .ou-modal {
+    padding: 0;
+    align-items: stretch;
+    justify-items: stretch;
+  }
+  .ob .ou-modal-in {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    border: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  .ob .ou-sub {
+    padding: 12px 14px;
+    flex: 0 0 auto;
+  }
+  .ob .ou-modal iframe {
+    flex: 1 1 auto;
+    height: 100% !important;
+    min-height: 0 !important;
+  }
+}
+
+/* Live sending empty state */
+.ob-live-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 16px 12px;
+}
+
+.ob-live-empty-text b {
+  display: block;
+  font-size: 13px;
+  color: var(--ink);
+  margin-bottom: 3px;
+}
+
+.ob-live-empty-text p {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--faint);
+  line-height: 1.4;
+  max-width: 260px;
+}
+
+/* Campaigns responsive grid */
+.ob .ou-clist {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 640px) {
+  .ob .ou-clist {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1024px) {
+  .ob .ou-clist {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

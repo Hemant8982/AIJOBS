@@ -33,7 +33,7 @@ function Palette({ onClose, go }: { onClose: () => void; go: (h: string) => void
   const acts = [...ALL.map((n) => ({ label: `Go to ${n.label}`, href: n.href })), { label: 'Analyze a new job', href: '/analyzer' }, { label: 'Add a reminder', href: '/followups' }, { label: 'Paste a recruiter reply', href: '/inbox' }];
   const res = acts.filter((a) => a.label.toLowerCase().includes(q.toLowerCase()));
   return (
-    <div role="dialog" aria-modal="true" aria-label="Command palette" onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,.35)', display: 'grid', placeItems: 'start center', paddingTop: '14vh', zIndex: 50 }}>
+    <div role="dialog" aria-modal="true" aria-label="Command palette" onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,.35)', display: 'grid', placeItems: 'start center', paddingTop: '14vh', zIndex: 80 }}>
       <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: 'min(520px, 92vw)', padding: 8, boxShadow: '0 20px 50px rgba(15,23,42,.25)' }}>
         <input autoFocus placeholder="Jump to…" value={q} aria-label="Search commands" onChange={(e) => { setQ(e.target.value); setI(0); }}
           onKeyDown={(e) => { if (e.key === 'Escape') onClose(); if (e.key === 'ArrowDown') { e.preventDefault(); setI((i + 1) % Math.max(res.length, 1)); } if (e.key === 'ArrowUp') { e.preventDefault(); setI((i - 1 + res.length) % Math.max(res.length, 1)); } if (e.key === 'Enter' && res[i]) go(res[i].href); }} />
@@ -51,15 +51,49 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [pal, setPal] = useState(false);
   const [col, setCol] = useState(false);
+  const [nav, setNav] = useState(false);
+  const hamburgerRef = useRef<HTMLButtonElement>(null);
+  const prevNavRef = useRef(false);
+
   useEffect(() => { try { setCol(localStorage.getItem('jp.side') === '1'); } catch { /* storage unavailable */ } }, []);
   const toggle = () => setCol((v) => { try { localStorage.setItem('jp.side', v ? '0' : '1'); } catch { /* ignore */ } return !v; });
   const [menu, setMenu] = useState(false); const menuRef = useRef<HTMLDivElement>(null);
   const [me, setMe] = useState<{ name: string; email: string; plan: string; role?: string; image?: string | null } | null>(null);
+
   useEffect(() => {
     if (!token.get()) { router.replace('/login'); return; }
     const load = () => api('/auth/me').then(setMe).catch(() => undefined);
     load(); window.addEventListener('jobpilot:profile', load);
   }, [router]);
+
+  // Close mobile drawer on route change
+  useEffect(() => {
+    setNav(false);
+  }, [path]);
+
+  // Return focus to hamburger button when drawer closes
+  useEffect(() => {
+    if (prevNavRef.current && !nav) {
+      hamburgerRef.current?.focus();
+    }
+    prevNavRef.current = nav;
+  }, [nav]);
+
+  // Close mobile drawer on Escape and lock body scroll while open
+  useEffect(() => {
+    if (!nav) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setNav(false);
+    };
+    document.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [nav]);
+
   useEffect(() => {
     if (!menu) return;
     const close = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenu(false); };
@@ -67,29 +101,37 @@ export default function AppShell({ children }: { children: ReactNode }) {
     document.addEventListener('mousedown', close); document.addEventListener('keydown', esc);
     return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', esc); };
   }, [menu]);
+
   useEffect(() => {
-    const k = (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPal((v) => !v); } };
+    const k = (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setNav(false); setPal((v) => !v); } };
     window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k);
   }, []);
+
   if (!token.get() && typeof window !== 'undefined') return null;
   const initials = (me?.name ?? '?').split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+
   return (
     <div className="shell">
-      <nav className={`side ${col ? 'col' : ''}`} aria-label="Main">
-        <div className="side-top"><Logo /><button className="collapse" onClick={toggle} aria-label={col ? 'Expand sidebar' : 'Collapse sidebar'} aria-expanded={!col} title={col ? 'Expand sidebar' : 'Collapse sidebar'}>{col ? '»' : '«'}</button></div>
+      {nav && <div className="mobile-nav-backdrop" onClick={() => setNav(false)} aria-hidden="true" />}
+      <nav id="app-sidebar-nav" className={`side ${col ? 'col' : ''} ${nav ? 'open' : ''}`} aria-label="Main">
+        <div className="side-top">
+          <Logo />
+          <button className="collapse" onClick={toggle} aria-label={col ? 'Expand sidebar' : 'Collapse sidebar'} aria-expanded={!col} title={col ? 'Expand sidebar' : 'Collapse sidebar'}>{col ? '»' : '«'}</button>
+          <button className="btn sm mobile-drawer-close" onClick={() => setNav(false)} aria-label="Close menu"><Icon name="close" size={14} /></button>
+        </div>
         {(me?.role === 'super_admin' ? [ADMIN, ...GROUPS] : GROUPS).map((g) => (
           <div key={g.h}>
             <div className="nav-h">{g.h}</div><div className="nav-rule" />
             {g.items.map((n) => {
               const on = n.href === '/admin' ? path === '/admin' : n.href.startsWith('/settings/') ? path === n.href : path.startsWith(n.href);
-              return <Link key={n.href} href={n.href} className={`nav ${on ? 'on' : ''}`} aria-current={on ? 'page' : undefined} title={col ? n.label : undefined}><span className="ni" style={{ background: `linear-gradient(145deg, ${TONE[n.href]?.[0] ?? '#6366F1'}, ${TONE[n.href]?.[1] ?? '#4338CA'})`, boxShadow: `0 3px 8px ${TONE[n.href]?.[1] ?? '#4338CA'}40, inset 0 1px 0 rgba(255,255,255,.45), inset 0 -2px 0 rgba(0,0,0,.14)` }}><Icon name={n.icon} size={13} /></span><span className="nl">{n.label}</span></Link>;
+              return <Link key={n.href} href={n.href} onClick={() => setNav(false)} className={`nav ${on ? 'on' : ''}`} aria-current={on ? 'page' : undefined} title={col ? n.label : undefined}><span className="ni" style={{ background: `linear-gradient(145deg, ${TONE[n.href]?.[0] ?? '#6366F1'}, ${TONE[n.href]?.[1] ?? '#4338CA'})`, boxShadow: `0 3px 8px ${TONE[n.href]?.[1] ?? '#4338CA'}40, inset 0 1px 0 rgba(255,255,255,.45), inset 0 -2px 0 rgba(0,0,0,.14)` }}><Icon name={n.icon} size={13} /></span><span className="nl">{n.label}</span></Link>;
             })}
           </div>
         ))}
         <div className="side-foot">
           {me?.image ? <img className="avatar" src={me.image} alt="" referrerPolicy="no-referrer" style={{ objectFit: 'cover' }} /> : <div className="avatar" aria-hidden="true">{initials}</div>}
           <div className="nl" style={{ minWidth: 0, flex: 1 }}>
-            <Link href="/settings/profile" title="Edit profile" style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', color: 'inherit', textDecoration: 'none' }}>{me?.name ?? ' '}</Link>
+            <Link href="/settings/profile" onClick={() => setNav(false)} title="Edit profile" style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', color: 'inherit', textDecoration: 'none' }}>{me?.name ?? ' '}</Link>
             <div className="faint" style={{ textTransform: 'capitalize' }}>{me?.role === 'super_admin' ? 'Super admin' : `${me?.plan?.replace('_', ' ') ?? ''} plan`}</div>
           </div>
           <button className="btn sm lo" aria-label="Log out" title="Log out" onClick={() => { token.clear(); router.push('/login'); }}><Icon name="out" size={14} /></button>
@@ -97,10 +139,21 @@ export default function AppShell({ children }: { children: ReactNode }) {
       </nav>
       <div className="content">
         <header className="topbar">
-          <b>{TITLES[path] ?? ''}</b>
+          <button
+            ref={hamburgerRef}
+            type="button"
+            className="btn sm mobile-nav-btn"
+            onClick={() => setNav((v) => !v)}
+            aria-label={nav ? "Close menu" : "Open menu"}
+            aria-expanded={nav}
+            aria-controls="app-sidebar-nav"
+          >
+            <Icon name={nav ? "close" : "menu"} size={16} />
+          </button>
+          <b className="topbar-title">{TITLES[path] ?? ''}</b>
           <span className="sp" />
-          <button className="btn sm" onClick={() => setPal(true)} aria-label="Open command palette"><Icon name="search" size={13} />Search <span className="faint">Ctrl K</span></button>
-          <Link href="/profiles" className="btn sm"><Icon name="user" size={13} />Profiles</Link>
+          <button className="btn sm topbar-search-btn" onClick={() => { setNav(false); setPal(true); }} aria-label="Open command palette"><Icon name="search" size={13} />Search <span className="faint topbar-search-hint">Ctrl K</span></button>
+          <Link href="/profiles" className="btn sm topbar-profiles-btn"><Icon name="user" size={13} />Profiles</Link>
           <div className="pm" ref={menuRef}>
             <button className="pm-btn" onClick={() => setMenu((v) => !v)} aria-haspopup="menu" aria-expanded={menu} aria-label="Account menu" title={me?.name ?? 'Account'}>
               {me?.image ? <img src={me.image} alt="" referrerPolicy="no-referrer" /> : <span>{initials}</span>}

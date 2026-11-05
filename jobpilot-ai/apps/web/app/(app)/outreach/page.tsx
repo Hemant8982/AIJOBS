@@ -60,6 +60,8 @@ export default function Outreach() {
   const [undo, setUndo] = useState<string | null>(null); const [aiNote, setAiNote] = useState('');
   const [shot, setShot] = useState<string | null>(null); const [found, setFound] = useState<Found | null>(null); const [pick, setPick] = useState<Set<string>>(new Set()); const [drag, setDrag] = useState(false); const [secs, setSecs] = useState(0);
   const [confirmModal, setConfirmModal] = useState(false);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [mobileChecksOpen, setMobileChecksOpen] = useState(false);
 
   const file = useRef<HTMLInputElement>(null);
   const imgIn = useRef<HTMLInputElement>(null);
@@ -110,6 +112,18 @@ export default function Outreach() {
     return () => window.removeEventListener('keydown', onKey);
   }, [confirmModal]);
 
+  // Virtual keyboard detection on mobile touch devices
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return;
+    const vv = window.visualViewport;
+    const onResize = () => {
+      const isKb = window.innerHeight - vv.height > 150;
+      setKeyboardOpen(isKb);
+    };
+    vv.addEventListener('resize', onResize);
+    return () => vv.removeEventListener('resize', onResize);
+  }, []);
+
   useEffect(() => { if (busy !== 'img') { setSecs(0); return; } const t = setInterval(() => setSecs((x) => x + 1), 1000); return () => clearInterval(t); }, [busy]);
   async function readImage(f: Blob) {
     if (f.size > MAX_IMG * 2) { setErr('That image is too large. Use one under 16 MB.'); return; }
@@ -140,6 +154,7 @@ export default function Outreach() {
     { ok: !!lim?.gmailConnected, t: lim?.gmailConnected ? 'Gmail' : 'Connect Gmail' },
   ];
   const ready = n > 0 && !!resumeId && name.trim() && subject.trim().length >= 3 && body.trim().length >= 20;
+  const readyCount = checks.filter((c) => c.ok).length;
 
   const missingRequirement = useMemo(() => {
     if (n === 0) return 'Add email contacts';
@@ -470,7 +485,13 @@ export default function Outreach() {
               {live && <Pill tone={TONES[live.status] ?? ''}>{live.status}</Pill>}
             </div>
             {!live ? (
-              <div className="ou-idle"><div className="ou-stage idle"><span className="ou-doc"><i /><i /><i /></span><span className="ou-track" /><span className="ou-env"><Icon name="send" size={14} /></span></div><small>Start a campaign and watch each email fly out here.</small></div>
+              <div className="ou-idle ob-live-empty">
+                <div className="ou-stage idle"><span className="ou-doc"><i /><i /><i /></span><span className="ou-track" /><span className="ou-env"><Icon name="send" size={14} /></span></div>
+                <div className="ob-live-empty-text">
+                  <b>Your sending progress will appear here</b>
+                  <p>Start a campaign to begin outreach. We&apos;ll show delivery progress, current recipient, and controls in real time.</p>
+                </div>
+              </div>
             ) : (
               <>
                 <div className={`ou-stage ${sending ? 'go' : ''}`}>
@@ -501,26 +522,74 @@ export default function Outreach() {
       </div>
 
       {/* ---------- Step 4: Preview and send Action Bar ---------- */}
-      <div className="ou-bottom card" ref={step4Ref} id="step-4">
-        <ul className="ou-checks">{checks.map((c) => <li key={c.t} className={c.ok ? 'ok' : ''}><i>{c.ok ? '✓' : ''}</i>{c.t}</li>)}</ul>
-        <span className="sp" />
+      <div className={`ou-bottom card ob-action-bar ${keyboardOpen ? 'kb-open' : ''}`} ref={step4Ref} id="step-4">
+        {/* Mobile checklist summary / toggle */}
+        <div className="ob-bar-summary">
+          <button
+            type="button"
+            className="ob-bar-toggle-btn"
+            onClick={() => setMobileChecksOpen((v) => !v)}
+            aria-expanded={mobileChecksOpen}
+            aria-label="Toggle checklist requirements"
+          >
+            <span className={`ob-ready-pill ${ready ? 'ready' : ''}`}>
+              {readyCount} of {checks.length} ready
+            </span>
+            <span className="ob-toggle-icon">{mobileChecksOpen ? '▲' : '▼'}</span>
+          </button>
 
-        {!ready && missingRequirement && (
-          <span className="ob-missing-req" title={`Required: ${missingRequirement}`}><Icon name="alert" size={13} />Missing: {missingRequirement}</span>
-        )}
+          {!ready && missingRequirement && (
+            <span className="ob-missing-req" title={`Required: ${missingRequirement}`}>
+              <Icon name="alert" size={13} />
+              <span>Missing: {missingRequirement}</span>
+            </span>
+          )}
+        </div>
 
-        <button type="button" className="btn sm" onClick={preview} disabled={!body.trim() || !!busy} title="Preview resolved email with actual contact variables"><Icon name="search" size={13} />{busy === 'prev' ? 'Building…' : 'Preview'}</button>
-        <button type="button" className="btn sm" onClick={() => create(false)} disabled={!ready || !!busy} title="Save this campaign setup without sending">Save draft</button>
-        <button
-          type="button"
-          className="btn primary ou-start"
-          onClick={() => setConfirmModal(true)}
-          disabled={!ready || !!busy}
-          title={ready ? 'Review and launch this outreach campaign' : `Disabled: ${missingRequirement}`}
-        >
-          <Icon name="send" size={14} />
-          {busy === 'start' ? 'Starting…' : `Start sending${n ? ` to ${n}` : ''}`}
-        </button>
+        {/* Non-interactive checklist */}
+        <ul className={`ou-checks ob-checks-list ${mobileChecksOpen ? 'open' : ''}`} role="list" aria-label="Campaign requirements">
+          {checks.map((c) => (
+            <li key={c.t} className={c.ok ? 'ok' : ''} role="listitem">
+              <i aria-hidden="true"><Icon name={c.ok ? 'check' : 'alert'} size={12} /></i>
+              <span>{c.t}</span>
+            </li>
+          ))}
+        </ul>
+
+        <span className="sp ob-desktop-sp" />
+
+        {/* Action buttons */}
+        <div className="ob-bar-actions">
+          <button
+            type="button"
+            className="btn sm ob-action-btn ob-btn-prev"
+            onClick={preview}
+            disabled={!body.trim() || !!busy}
+            title="Preview resolved email with actual contact variables"
+          >
+            <Icon name="search" size={13} />
+            <span className="ob-btn-txt">{busy === 'prev' ? 'Building…' : 'Preview'}</span>
+          </button>
+          <button
+            type="button"
+            className="btn sm ob-action-btn ob-btn-save"
+            onClick={() => create(false)}
+            disabled={!ready || !!busy}
+            title="Save this campaign setup without sending"
+          >
+            <span className="ob-btn-txt">Save draft</span>
+          </button>
+          <button
+            type="button"
+            className="btn primary ou-start ob-action-btn ob-btn-start"
+            onClick={() => setConfirmModal(true)}
+            disabled={!ready || !!busy}
+            title={ready ? 'Review and launch this outreach campaign' : `Disabled: ${missingRequirement}`}
+          >
+            <Icon name="send" size={14} />
+            <span className="ob-btn-txt">{busy === 'start' ? 'Starting…' : `Start sending${n ? ` to ${n}` : ''}`}</span>
+          </button>
+        </div>
       </div>
 
       {/* Campaigns History */}
