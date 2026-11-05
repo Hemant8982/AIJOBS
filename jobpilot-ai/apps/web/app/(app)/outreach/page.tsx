@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon, Pill } from '@/components/ui';
 import { api, errText } from '@/lib/api';
@@ -104,13 +105,18 @@ export default function Outreach() {
     window.addEventListener('paste', h); return () => window.removeEventListener('paste', h);
   });
 
-  // Close confirmation modal on Escape
+  // Close confirmation modal or preview modal on Escape
   useEffect(() => {
-    if (!confirmModal) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setConfirmModal(false); };
+    if (!confirmModal && !prev) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setConfirmModal(false);
+        setPrev(null);
+      }
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [confirmModal]);
+  }, [confirmModal, prev]);
 
   // Virtual keyboard detection on mobile touch devices
   useEffect(() => {
@@ -228,7 +234,7 @@ export default function Outreach() {
       <header className="ou-bar-top">
         <div className="ou-ttl"><span className="ou-logo"><BrandMark size={34} /></span><div><h1>HR Outreach</h1><small>AI writes it, the agent sends it one by one with your resume</small></div></div>
         <div className="ou-pills">
-          <span className="ou-pill"><i className={`ou-dot ${lim?.gmailConnected ? 'on' : ''}`} />{lim ? (lim.gmailConnected ? 'Gmail connected' : <a href="/settings/email">Connect Gmail</a>) : '…'}</span>
+          <span className="ou-pill"><i className={`ou-dot ${lim?.gmailConnected ? 'on' : ''}`} />{lim ? (lim.gmailConnected ? 'Gmail connected' : <Link href="/settings/email">Connect Gmail</Link>) : '…'}</span>
           <span className="ou-pill"><b>{n}</b> ready{n > 0 && <em>· ≈{minutes} min</em>}</span>
           <span className="ou-pill"><b>{lim?.sentLast24h ?? 0}</b>/{lim?.dailyLimit ?? 50} today<span className="ou-mini"><i style={{ width: `${used}%` }} /></span></span>
           <span className={`ou-pill ${lim?.mailMode === 'gmail' ? '' : 'warn'}`}>{lim?.mailMode === 'gmail' ? 'Live sending' : 'Test mode'}</span>
@@ -557,6 +563,13 @@ export default function Outreach() {
         </ul>
 
         <span className="sp ob-desktop-sp" />
+
+        {!ready && missingRequirement && (
+          <span className="ob-missing-req ob-desktop-missing" title={`Required: ${missingRequirement}`}>
+            <Icon name="alert" size={13} />
+            <span>Missing: {missingRequirement}</span>
+          </span>
+        )}
 
         {/* Action buttons */}
         <div className="ob-bar-actions">

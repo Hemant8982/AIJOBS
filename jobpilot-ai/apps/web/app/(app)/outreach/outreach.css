@@ -692,3 +692,12 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+.ob-desktop-missing {
+  display: inline-flex;
+}
+@media (max-width: 768px) {
+  .ob-desktop-missing {
+    display: none !important;
+  }
+}
